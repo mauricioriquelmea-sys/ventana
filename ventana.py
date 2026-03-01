@@ -107,19 +107,48 @@ with col_img:
         st.error(f"Error: No se encuentra el archivo '{img_path}' en el repositorio.")
 
 # =================================================================
-# 5. GENERACIÓN DE PDF
+# 5. GENERACIÓN DE PDF (ACTUALIZADO: ANONIMIZADO)
 # =================================================================
-def generar_pdf():
+def generar_pdf(proyecto, ventana, carga, zona_dec):
+    # Orientación Landscape (Horizontal) 
     pdf = FPDF(orientation='L', unit='mm', format='Letter')
     pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "DECLARACION DE RESISTENCIA DE TRAVESAÑOS", ln=True, align='C')
     
-    # Imagen en el PDF (verificación de minúsculas)
+    # Fuente Courier para estilo técnico formal
+    pdf.set_font("Courier", 'B', 14)
+    regDate = datetime.now().strftime("%m/%d/%Y")
+    
+    # Título y subrayado de la declaración
+    pdf.text(50, 40, "      DECLARACIÓN DE RESISTENCIA DE LOS TRAVESAÑOS DE LAS VENTANAS")
+    pdf.text(50, 43, "      ____________________________________________________________")
+    
+    pdf.set_font("Courier", 'B', 12)
+    pdf.text(50, 60, "VEKA CHILE EMPRESA PROVEEDORA DE LAS VENTANAS SEGÚN LA SIGUIENTE REFERENCIA:")
+    
+    # Datos del Proyecto y Ventana
+    pdf.text(50, 75, f"Proyecto: {proyecto}")
+    pdf.text(50, 80, f"Ventana: {ventana}")
+    
+    # Cuerpo de la Declaración (Redacción exacta OGUC)
+    pdf.text(50, 95, "DECLARA QUE LOS TRAVESAÑOS DE LA VENTANA CUMPLEN CON LA SOBRECARGA DE")
+    pdf.text(50, 100, "BARANDAS ESPECIFICADA  EN EL ARTÍCULO 4.2.7 DE LA ORDENANZA GENERAL DE")
+    pdf.text(50, 105, "URBANISMO Y CONSTRUCCIONES ORDENANZA GENERAL DE URBANISMO Y CONSTRUCCIO-")
+    pdf.text(50, 110, f"NES PARA ZONAS {zona_dec}, ES DECIR, RESISTEN UNA SOBRECARGA HORIZONTAL, ")
+    pdf.text(50, 115, "APLICADA EN CUALQUIER PUNTO DE SU ESTRUCTURA, DESDE EL NIVEL DE PISO")
+    pdf.text(50, 120, f"TERMINADO HASTA LOS 95 CM DE ALTURA, DE {carga} KILOS POR METRO LINEAL COMO")
+    pdf.text(50, 125, "MÁXIMO. ")
+    
+    # Pie de firma anonimizado según tu requerimiento
+    pdf.set_font("Courier", 'B', 10)
+    pdf.text(50, 170, f"Documento elaborado por: XXXXXX") 
+    pdf.text(50, 175, f"Fecha: {regDate}")
+    
+    # Inserción de esquema técnico si existe el archivo
     if os.path.exists("ventana.png"):
-        pdf.image("ventana.png", x=210, y=140, w=45)
-    
+        pdf.image("ventana.png", x=210, y=20, w=45)
+        
     return pdf.output()
+
 
 # Botón Sidebar
 if st.sidebar.button("📄 Descargar Certificado PDF"):
