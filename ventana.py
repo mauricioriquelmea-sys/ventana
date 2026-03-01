@@ -23,7 +23,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Encabezado con Logo (Verificación de existencia)
+# Encabezado con Logo
 if os.path.exists("Logo.png"):
     st.image("Logo.png", width=350)
 
@@ -33,6 +33,10 @@ st.caption("Verificación de Travesaños según Art. 4.2.7 | Proyectos Estructur
 # =================================================================
 # 2. PARÁMETROS DE ENTRADA (SIDEBAR)
 # =================================================================
+st.sidebar.header("📝 Datos del Proyecto (Para PDF)")
+txt_proyecto = st.sidebar.text_input("Nombre del Proyecto", "Edificio Veka")
+txt_ventana = st.sidebar.text_input("Referencia Ventana", "V1")
+
 st.sidebar.header("📐 Geometría y Carga")
 largo_travesano = st.sidebar.number_input("Largo de Travesaño (mm)", value=1500.0)
 h_inferior = st.sidebar.number_input("Altura Inferior Ventana (mm)", value=500.0)
@@ -62,17 +66,15 @@ else:
     else: Fy = 25310504.9
 
 Lt_m = largo_travesano / 1000
-# Deflexión admisible según criterio L/175 o L/240+6.35
 def_adm = (Lt_m / 240) + (6.35 / 1000) if Lt_m > 4.115 else (Lt_m / 175)
 altura_total = h_inferior + h_antepecho
 sometido = altura_total <= 950
 
-# Inercia y Módulo requeridos
 Ixx_req = (5 / 384) * (carga_baranda * Lt_m**4) / (E * def_adm) * 10**8 if sometido else 0.0
 Wxx_req = ((carga_baranda * Lt_m**2) / 8) / (Fy / ny) * 10**6 if sometido else 0.0
 
 # =================================================================
-# 4. DESPLIEGUE DE RESULTADOS E IMAGEN (CORREGIDO)
+# 4. DESPLIEGUE DE RESULTADOS E IMAGEN
 # =================================================================
 col_datos, col_img = st.columns([1.5, 1])
 
@@ -84,7 +86,7 @@ with col_datos:
 
     st.markdown('<div class="result-box">', unsafe_allow_html=True)
     if not sometido:
-        st.warning("⚠️ No requiere verificar carga de baranda (> 950 mm).")
+        st.warning("⚠️ Altura > 950 mm: No requiere verificar carga de baranda según OGUC.")
     else:
         st.write(f"**Requerimientos (Carga {carga_baranda} kgf/m):**")
         st.write(f"• Inercia Mínima Requerida: **{Ixx_req:.3f} cm⁴**")
@@ -99,37 +101,29 @@ with col_datos:
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_img:
-    # CARGA DE IMAGEN CON NOMBRE EN MINÚSCULAS
     img_path = "ventana.png"
     if os.path.exists(img_path):
         st.image(img_path, caption="Esquema de Carga en Travesaño", width=300)
     else:
-        st.error(f"Error: No se encuentra el archivo '{img_path}' en el repositorio.")
+        st.error(f"Error: No se encuentra '{img_path}'.")
 
 # =================================================================
-# 5. GENERACIÓN DE PDF (ACTUALIZADO: ANONIMIZADO)
+# 5. GENERACIÓN DE PDF (CORREGIDO: FIRMA XXXXXX)
 # =================================================================
 def generar_pdf(proyecto, ventana, carga, zona_dec):
-    # Orientación Landscape (Horizontal) 
     pdf = FPDF(orientation='L', unit='mm', format='Letter')
     pdf.add_page()
-    
-    # Fuente Courier para estilo técnico formal
     pdf.set_font("Courier", 'B', 14)
     regDate = datetime.now().strftime("%m/%d/%Y")
     
-    # Título y subrayado de la declaración
+    # Título y redacción exacta
     pdf.text(50, 40, "      DECLARACIÓN DE RESISTENCIA DE LOS TRAVESAÑOS DE LAS VENTANAS")
     pdf.text(50, 43, "      ____________________________________________________________")
-    
     pdf.set_font("Courier", 'B', 12)
     pdf.text(50, 60, "VEKA CHILE EMPRESA PROVEEDORA DE LAS VENTANAS SEGÚN LA SIGUIENTE REFERENCIA:")
-    
-    # Datos del Proyecto y Ventana
     pdf.text(50, 75, f"Proyecto: {proyecto}")
     pdf.text(50, 80, f"Ventana: {ventana}")
     
-    # Cuerpo de la Declaración (Redacción exacta OGUC)
     pdf.text(50, 95, "DECLARA QUE LOS TRAVESAÑOS DE LA VENTANA CUMPLEN CON LA SOBRECARGA DE")
     pdf.text(50, 100, "BARANDAS ESPECIFICADA  EN EL ARTÍCULO 4.2.7 DE LA ORDENANZA GENERAL DE")
     pdf.text(50, 105, "URBANISMO Y CONSTRUCCIONES ORDENANZA GENERAL DE URBANISMO Y CONSTRUCCIO-")
@@ -138,29 +132,27 @@ def generar_pdf(proyecto, ventana, carga, zona_dec):
     pdf.text(50, 120, f"TERMINADO HASTA LOS 95 CM DE ALTURA, DE {carga} KILOS POR METRO LINEAL COMO")
     pdf.text(50, 125, "MÁXIMO. ")
     
-    # Pie de firma anonimizado según tu requerimiento
     pdf.set_font("Courier", 'B', 10)
     pdf.text(50, 170, f"Documento elaborado por: XXXXXX") 
     pdf.text(50, 175, f"Fecha: {regDate}")
     
-    # Inserción de esquema técnico si existe el archivo
     if os.path.exists("ventana.png"):
         pdf.image("ventana.png", x=210, y=20, w=45)
-        
     return pdf.output()
 
-
-# Botón Sidebar
-if st.sidebar.button("📄 Descargar Certificado PDF"):
+# Ejecución de descarga en Sidebar
+st.sidebar.markdown("---")
+if st.sidebar.button("📄 Generar Declaración PDF"):
     if ixx_prop >= Ixx_req and wxx_prop >= Wxx_req:
         try:
-            pdf_bytes = generar_pdf()
+            dec_tipo = "PRIVADAS" if carga_baranda == 50 else "PÚBLICAS"
+            pdf_bytes = generar_pdf(txt_proyecto, txt_ventana, carga_baranda, dec_tipo)
             b64 = base64.b64encode(pdf_bytes).decode()
-            st.sidebar.markdown(f'<a href="data:application/pdf;base64,{b64}" download="Certificado_Baranda.pdf" style="text-decoration:none;"><div style="background-color:#003366;color:white;padding:10px;border-radius:5px;text-align:center;">📥 OBTENER PDF</div></a>', unsafe_allow_html=True)
+            st.sidebar.markdown(f'<a href="data:application/pdf;base64,{b64}" download="Declaracion_{txt_ventana}.pdf" style="text-decoration:none;"><div style="background-color:#003366;color:white;padding:10px;border-radius:5px;text-align:center;font-weight:bold;">📥 DESCARGAR PDF</div></a>', unsafe_allow_html=True)
         except Exception as e:
-            st.sidebar.error(f"Error generando PDF: {e}")
+            st.sidebar.error(f"Error: {e}")
     else:
-        st.sidebar.error("El perfil propuesto no cumple con los requisitos mínimos.")
+        st.sidebar.error("El perfil no cumple.")
 
 st.markdown("---")
 st.markdown("<div style='text-align: center; color: #666;'>Mauricio Riquelme | Proyectos Estructurales <br> <em>'Programming is understanding'</em></div>", unsafe_allow_html=True)
