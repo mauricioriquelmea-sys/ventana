@@ -97,7 +97,7 @@ with col_datos:
 
 with col_img:
     # AQUÍ SE CARGA LA IMAGEN AL FINAL DE LOS RESULTADOS
-    if os.path.exists("Ventana.png"):
+    if os.path.exists("ventana.png"):
         st.image("Ventana.png", caption="Esquema de Carga en Travesaño", width=300)
     else:
         st.error("Archivo 'Ventana.png' no encontrado en el repositorio.")
