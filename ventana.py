@@ -19,10 +19,11 @@ st.markdown("""
     }
     .verify-ok { color: #28a745; font-weight: bold; font-size: 1.2em; }
     .verify-fail { color: #dc3545; font-weight: bold; font-size: 1.2em; }
+    .stNumberInput input { color: #003366 !important; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# Encabezado con Logo
+# Encabezado con Logo (Verificación de existencia)
 if os.path.exists("Logo.png"):
     st.image("Logo.png", width=350)
 
@@ -61,15 +62,17 @@ else:
     else: Fy = 25310504.9
 
 Lt_m = largo_travesano / 1000
+# Deflexión admisible según criterio L/175 o L/240+6.35
 def_adm = (Lt_m / 240) + (6.35 / 1000) if Lt_m > 4.115 else (Lt_m / 175)
 altura_total = h_inferior + h_antepecho
 sometido = altura_total <= 950
 
+# Inercia y Módulo requeridos
 Ixx_req = (5 / 384) * (carga_baranda * Lt_m**4) / (E * def_adm) * 10**8 if sometido else 0.0
 Wxx_req = ((carga_baranda * Lt_m**2) / 8) / (Fy / ny) * 10**6 if sometido else 0.0
 
 # =================================================================
-# 4. DESPLIEGUE DE RESULTADOS E IMAGEN (FIX)
+# 4. DESPLIEGUE DE RESULTADOS E IMAGEN (CORREGIDO)
 # =================================================================
 col_datos, col_img = st.columns([1.5, 1])
 
@@ -84,8 +87,8 @@ with col_datos:
         st.warning("⚠️ No requiere verificar carga de baranda (> 950 mm).")
     else:
         st.write(f"**Requerimientos (Carga {carga_baranda} kgf/m):**")
-        st.write(f"• Inercia Mínima: **{Ixx_req:.3f} cm⁴**")
-        st.write(f"• Módulo Mínimo: **{Wxx_req:.3f} cm³**")
+        st.write(f"• Inercia Mínima Requerida: **{Ixx_req:.3f} cm⁴**")
+        st.write(f"• Módulo Mínimo Requerido: **{Wxx_req:.3f} cm³**")
         
         cumple_i = ixx_prop >= Ixx_req
         cumple_w = wxx_prop >= Wxx_req
@@ -96,11 +99,12 @@ with col_datos:
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_img:
-    # AQUÍ SE CARGA LA IMAGEN AL FINAL DE LOS RESULTADOS
-    if os.path.exists("ventana.png"):
-        st.image("Ventana.png", caption="Esquema de Carga en Travesaño", width=300)
+    # CARGA DE IMAGEN CON NOMBRE EN MINÚSCULAS
+    img_path = "ventana.png"
+    if os.path.exists(img_path):
+        st.image(img_path, caption="Esquema de Carga en Travesaño", width=300)
     else:
-        st.error("Archivo 'Ventana.png' no encontrado en el repositorio.")
+        st.error(f"Error: No se encuentra el archivo '{img_path}' en el repositorio.")
 
 # =================================================================
 # 5. GENERACIÓN DE PDF
@@ -109,16 +113,25 @@ def generar_pdf():
     pdf = FPDF(orientation='L', unit='mm', format='Letter')
     pdf.add_page()
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, "DECLARACIÓN DE RESISTENCIA DE TRAVESAÑOS", ln=True, align='C')
-    if os.path.exists("Ventana.png"):
-        pdf.image("Ventana.png", x=210, y=140, w=45)
+    pdf.cell(0, 10, "DECLARACION DE RESISTENCIA DE TRAVESAÑOS", ln=True, align='C')
+    
+    # Imagen en el PDF (verificación de minúsculas)
+    if os.path.exists("ventana.png"):
+        pdf.image("ventana.png", x=210, y=140, w=45)
+    
     return pdf.output()
 
 # Botón Sidebar
 if st.sidebar.button("📄 Descargar Certificado PDF"):
     if ixx_prop >= Ixx_req and wxx_prop >= Wxx_req:
-        pdf_bytes = generar_pdf()
-        b64 = base64.b64encode(pdf_bytes).decode()
-        st.sidebar.markdown(f'<a href="data:application/pdf;base64,{b64}" download="Certificado.pdf" style="text-decoration:none;"><div style="background-color:#003366;color:white;padding:10px;border-radius:5px;text-align:center;">📥 OBTENER PDF</div></a>', unsafe_allow_html=True)
+        try:
+            pdf_bytes = generar_pdf()
+            b64 = base64.b64encode(pdf_bytes).decode()
+            st.sidebar.markdown(f'<a href="data:application/pdf;base64,{b64}" download="Certificado_Baranda.pdf" style="text-decoration:none;"><div style="background-color:#003366;color:white;padding:10px;border-radius:5px;text-align:center;">📥 OBTENER PDF</div></a>', unsafe_allow_html=True)
+        except Exception as e:
+            st.sidebar.error(f"Error generando PDF: {e}")
     else:
-        st.sidebar.error("El perfil no cumple.")
+        st.sidebar.error("El perfil propuesto no cumple con los requisitos mínimos.")
+
+st.markdown("---")
+st.markdown("<div style='text-align: center; color: #666;'>Mauricio Riquelme | Proyectos Estructurales <br> <em>'Programming is understanding'</em></div>", unsafe_allow_html=True)
