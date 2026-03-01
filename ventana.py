@@ -7,7 +7,7 @@ from fpdf import FPDF
 from datetime import datetime
 
 # =================================================================
-# 1. CONFIGURACIÓN Y ESTILO CORPORATIVO
+# 1. CONFIGURACIÓN Y ESTILO
 # =================================================================
 st.set_page_config(page_title="Carga de Baranda | Proyectos Estructurales", layout="wide")
 
@@ -27,10 +27,10 @@ if os.path.exists("Logo.png"):
     st.image("Logo.png", width=350)
 
 st.title("🪟 Resistencia a Carga de Baranda (OGUC)")
-st.caption("Verificación de Travesaños según Art. 4.2.7 | Proyectos Estructurales EIRL")
+st.caption("Criterio de Deflexión según NCh 888 Of.2000")
 
 # =================================================================
-# 2. PARÁMETROS DE ENTRADA (SIDEBAR)
+# 2. ENTRADAS
 # =================================================================
 st.sidebar.header("📝 Datos del Certificado")
 txt_proyecto = st.sidebar.text_input("Nombre del Proyecto", "EDIFICIO YYY")
@@ -42,7 +42,13 @@ h_inferior = st.sidebar.number_input("Altura Inferior Ventana (mm)", value=500.0
 h_antepecho = st.sidebar.number_input("Altura de Antepecho (mm)", value=450.0)
 carga_baranda = st.sidebar.radio("Carga de Baranda (kgf/m)", [50, 100], index=0)
 
-material = st.sidebar.selectbox("Seleccione Material", [
+st.sidebar.header("💎 Acristalamiento (NCh 888)")
+tipo_vidrio = st.sidebar.selectbox("Tipo de Vidrio", [
+    "Vidrio Simple (L/175)",
+    "Termopanel / DVH (L/225)"
+])
+
+material = st.sidebar.selectbox("Material del Perfil", [
     "Acero A270ES (Fy=270 MPa)",
     "Acero A240ES (Fy=240 MPa)",
     "Acero ASTM A36 (Fy=248 MPa)",
@@ -51,8 +57,9 @@ material = st.sidebar.selectbox("Seleccione Material", [
 ])
 
 # =================================================================
-# 3. MOTOR DE CÁLCULO
+# 3. CÁLCULO (SÓLO NCh 888)
 # =================================================================
+# Propiedades Materiales
 if "Aluminio" in material:
     E = 7000000000.0 
     ny = 1.65
@@ -65,7 +72,12 @@ else:
     else: Fy = 25310504.9
 
 Lt_m = largo_travesano / 1000
-def_adm = (Lt_m / 240) + (6.35 / 1000) if Lt_m > 4.115 else (Lt_m / 175)
+
+# Aplicación estricta de NCh 888
+divisor = 175 if "Simple" in tipo_vidrio else 225
+def_adm = Lt_m / divisor
+criterio_txt = f"L/{divisor}"
+
 altura_total = h_inferior + h_antepecho
 sometido = altura_total <= 950
 
@@ -73,52 +85,50 @@ Ixx_req = (5 / 384) * (carga_baranda * Lt_m**4) / (E * def_adm) * 10**8 if somet
 Wxx_req = ((carga_baranda * Lt_m**2) / 8) / (Fy / ny) * 10**6 if sometido else 0.0
 
 # =================================================================
-# 4. DESPLIEGUE DE RESULTADOS E IMAGEN
+# 4. INTERFAZ Y RESULTADOS
 # =================================================================
 col_datos, col_img = st.columns([1.5, 1])
 
 with col_datos:
-    st.subheader("🔍 Verificación del Perfil Propuesto")
+    st.subheader("🔍 Verificación del Perfil")
     c1, c2 = st.columns(2)
     ixx_prop = c1.number_input("Inercia Propuesta Ixx (cm4)", value=2.0, format="%.3f")
     wxx_prop = c2.number_input("Módulo Propuesto Wxx (cm3)", value=1.5, format="%.3f")
 
     st.markdown('<div class="result-box">', unsafe_allow_html=True)
     if not sometido:
-        st.warning("⚠️ Altura > 950 mm: No requiere verificar carga de baranda según OGUC.")
+        st.warning("⚠️ Altura > 950 mm: No requiere verificar baranda.")
     else:
-        st.write(f"**Requerimientos (Carga {carga_baranda} kgf/m):**")
-        st.write(f"• Inercia Mínima Requerida: **{Ixx_req:.3f} cm⁴**")
-        st.write(f"• Módulo Mínimo Requerido: **{Wxx_req:.3f} cm³**")
+        st.write(f"**Criterio de Deflexión: {criterio_txt}**")
+        st.write(f"• Inercia Mínima: **{Ixx_req:.3f} cm⁴**")
+        st.write(f"• Módulo Mínimo: **{Wxx_req:.3f} cm³**")
         
         cumple_i = ixx_prop >= Ixx_req
         cumple_w = wxx_prop >= Wxx_req
         
         st.divider()
-        st.markdown(f"Validación Inercia: <span class='{'verify-ok' if cumple_i else 'verify-fail'}'>{'✅ CUMPLE' if cumple_i else '❌ NO CUMPLE'}</span>", unsafe_allow_html=True)
-        st.markdown(f"Validación Módulo: <span class='{'verify-ok' if cumple_w else 'verify-fail'}'>{'✅ CUMPLE' if cumple_w else '❌ NO CUMPLE'}</span>", unsafe_allow_html=True)
+        st.markdown(f"Inercia: <span class='{'verify-ok' if cumple_i else 'verify-fail'}'>{'✅ OK' if cumple_i else '❌ FALLA'}</span>", unsafe_allow_html=True)
+        st.markdown(f"Módulo: <span class='{'verify-ok' if cumple_w else 'verify-fail'}'>{'✅ OK' if cumple_w else '❌ FALLA'}</span>", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_img:
     if os.path.exists("ventana.png"):
-        st.image("ventana.png", caption="Esquema de Carga en Travesaño", width=300)
+        st.image("ventana.png", caption="Carga de Baranda Horizontal", width=300)
 
 # =================================================================
-# 5. GENERACIÓN DE PDF (ANONIMIZADO Y SIN MARCA VEKA)
+# 5. GENERACIÓN DE PDF
 # =================================================================
-def generar_pdf(proyecto, ventana, carga, zona_dec):
+def generar_pdf(proyecto, ventana, carga, zona_dec, criterio):
     pdf = FPDF(orientation='L', unit='mm', format='Letter')
     pdf.add_page()
     pdf.set_font("Courier", 'B', 14)
     regDate = datetime.now().strftime("%m/%d/%Y")
     
-    # Título principal
     pdf.text(50, 40, "      DECLARACIÓN DE RESISTENCIA DE LOS TRAVESAÑOS DE LAS VENTANAS")
     pdf.text(50, 43, "      ____________________________________________________________")
     
     pdf.set_font("Courier", 'B', 12)
     pdf.text(50, 60, "EMPRESA PROVEEDORA DE LAS VENTANAS SEGÚN LA SIGUIENTE REFERENCIA:")
-    
     pdf.text(50, 75, f"Proyecto: {proyecto}")
     pdf.text(50, 80, f"Ventana: {ventana}")
     
@@ -128,32 +138,21 @@ def generar_pdf(proyecto, ventana, carga, zona_dec):
     pdf.text(50, 110, f"NES PARA ZONAS {zona_dec}, ES DECIR, RESISTEN UNA SOBRECARGA HORIZONTAL, ")
     pdf.text(50, 115, "APLICADA EN CUALQUIER PUNTO DE SU ESTRUCTURA, DESDE EL NIVEL DE PISO")
     pdf.text(50, 120, f"TERMINADO HASTA LOS 95 CM DE ALTURA, DE {carga} KILOS POR METRO LINEAL COMO")
-    pdf.text(50, 125, "MÁXIMO. ")
+    pdf.text(50, 125, f"MÁXIMO. Criterio de flecha admisible: {criterio}.")
     
-    # Pie de firma anonimizado
     pdf.set_font("Courier", 'B', 10)
     pdf.text(50, 170, f"Documento elaborado por: XXXXXX") 
     pdf.text(50, 175, f"Fecha: {regDate}")
     
-    # Imagen movida abajo a la derecha para evitar solapamiento con el texto superior
     if os.path.exists("ventana.png"):
         pdf.image("ventana.png", x=200, y=130, w=55)
         
     return pdf.output()
 
-# Ejecución en Sidebar
 st.sidebar.markdown("---")
-if st.sidebar.button("📄 Generar Declaración PDF"):
+if st.sidebar.button("📄 Descargar PDF"):
     if ixx_prop >= Ixx_req and wxx_prop >= Wxx_req:
-        try:
-            dec_tipo = "PRIVADAS" if carga_baranda == 50 else "PÚBLICAS"
-            pdf_bytes = generar_pdf(txt_proyecto, txt_ventana, carga_baranda, dec_tipo)
-            b64 = base64.b64encode(pdf_bytes).decode()
-            st.sidebar.markdown(f'<a href="data:application/pdf;base64,{b64}" download="Declaracion_{txt_ventana}.pdf" style="text-decoration:none;"><div style="background-color:#003366;color:white;padding:10px;border-radius:5px;text-align:center;font-weight:bold;">📥 DESCARGAR PDF</div></a>', unsafe_allow_html=True)
-        except Exception as e:
-            st.sidebar.error(f"Error: {e}")
-    else:
-        st.sidebar.error("El perfil no cumple.")
-
-st.markdown("---")
-st.markdown("<div style='text-align: center; color: #666;'>Mauricio Riquelme | Proyectos Estructurales <br> <em>'Programming is understanding'</em></div>", unsafe_allow_html=True)
+        dec_tipo = "PRIVADAS" if carga_baranda == 50 else "PÚBLICAS"
+        pdf_bytes = generar_pdf(txt_proyecto, txt_ventana, carga_baranda, dec_tipo, criterio_txt)
+        b64 = base64.b64encode(pdf_bytes).decode()
+        st.sidebar.markdown(f'<a href="data:application/pdf;base64,{b64}" download="Declaracion_{txt_ventana}.pdf" style="text-decoration:none;"><div style="background-color:#003366;color:white;padding:10px;border-radius:5px;text-align:center;font-weight:bold;">📥 DESCARGAR PDF</div></a>', unsafe_allow_html=True)
