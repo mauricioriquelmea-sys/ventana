@@ -23,7 +23,6 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Encabezado con Logo
 if os.path.exists("Logo.png"):
     st.image("Logo.png", width=350)
 
@@ -33,8 +32,8 @@ st.caption("Verificación de Travesaños según Art. 4.2.7 | Proyectos Estructur
 # =================================================================
 # 2. PARÁMETROS DE ENTRADA (SIDEBAR)
 # =================================================================
-st.sidebar.header("📝 Datos del Proyecto (Para PDF)")
-txt_proyecto = st.sidebar.text_input("Nombre del Proyecto", "Edificio Veka")
+st.sidebar.header("📝 Datos del Certificado")
+txt_proyecto = st.sidebar.text_input("Nombre del Proyecto", "EDIFICIO YYY")
 txt_ventana = st.sidebar.text_input("Referencia Ventana", "V1")
 
 st.sidebar.header("📐 Geometría y Carga")
@@ -101,14 +100,11 @@ with col_datos:
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_img:
-    img_path = "ventana.png"
-    if os.path.exists(img_path):
-        st.image(img_path, caption="Esquema de Carga en Travesaño", width=300)
-    else:
-        st.error(f"Error: No se encuentra '{img_path}'.")
+    if os.path.exists("ventana.png"):
+        st.image("ventana.png", caption="Esquema de Carga en Travesaño", width=300)
 
 # =================================================================
-# 5. GENERACIÓN DE PDF (CORREGIDO: FIRMA XXXXXX)
+# 5. GENERACIÓN DE PDF (ANONIMIZADO Y SIN MARCA VEKA)
 # =================================================================
 def generar_pdf(proyecto, ventana, carga, zona_dec):
     pdf = FPDF(orientation='L', unit='mm', format='Letter')
@@ -116,11 +112,13 @@ def generar_pdf(proyecto, ventana, carga, zona_dec):
     pdf.set_font("Courier", 'B', 14)
     regDate = datetime.now().strftime("%m/%d/%Y")
     
-    # Título y redacción exacta
+    # Título principal
     pdf.text(50, 40, "      DECLARACIÓN DE RESISTENCIA DE LOS TRAVESAÑOS DE LAS VENTANAS")
     pdf.text(50, 43, "      ____________________________________________________________")
+    
     pdf.set_font("Courier", 'B', 12)
-    pdf.text(50, 60, "VEKA CHILE EMPRESA PROVEEDORA DE LAS VENTANAS SEGÚN LA SIGUIENTE REFERENCIA:")
+    pdf.text(50, 60, "EMPRESA PROVEEDORA DE LAS VENTANAS SEGÚN LA SIGUIENTE REFERENCIA:")
+    
     pdf.text(50, 75, f"Proyecto: {proyecto}")
     pdf.text(50, 80, f"Ventana: {ventana}")
     
@@ -132,15 +130,18 @@ def generar_pdf(proyecto, ventana, carga, zona_dec):
     pdf.text(50, 120, f"TERMINADO HASTA LOS 95 CM DE ALTURA, DE {carga} KILOS POR METRO LINEAL COMO")
     pdf.text(50, 125, "MÁXIMO. ")
     
+    # Pie de firma anonimizado
     pdf.set_font("Courier", 'B', 10)
     pdf.text(50, 170, f"Documento elaborado por: XXXXXX") 
     pdf.text(50, 175, f"Fecha: {regDate}")
     
+    # Imagen movida abajo a la derecha para evitar solapamiento con el texto superior
     if os.path.exists("ventana.png"):
-        pdf.image("ventana.png", x=210, y=20, w=45)
+        pdf.image("ventana.png", x=200, y=130, w=55)
+        
     return pdf.output()
 
-# Ejecución de descarga en Sidebar
+# Ejecución en Sidebar
 st.sidebar.markdown("---")
 if st.sidebar.button("📄 Generar Declaración PDF"):
     if ixx_prop >= Ixx_req and wxx_prop >= Wxx_req:
