@@ -79,10 +79,10 @@ def_adm = Lt_m / divisor
 criterio_txt = f"L/{divisor}"
 
 altura_total = h_inferior + h_antepecho
-sometido = altura_total <= 950
 
-Ixx_req = (5 / 384) * (carga_baranda * Lt_m**4) / (E * def_adm) * 10**8 if sometido else 0.0
-Wxx_req = ((carga_baranda * Lt_m**2) / 8) / (Fy / ny) * 10**6 if sometido else 0.0
+# Cálculos realizados siempre (independientemente de la altura)
+Ixx_req = (5 / 384) * (carga_baranda * Lt_m**4) / (E * def_adm) * 10**8
+Wxx_req = ((carga_baranda * Lt_m**2) / 8) / (Fy / ny) * 10**6
 
 # =================================================================
 # 4. INTERFAZ Y RESULTADOS
@@ -96,19 +96,22 @@ with col_datos:
     wxx_prop = c2.number_input("Módulo Propuesto Wxx (cm3)", value=1.5, format="%.3f")
 
     st.markdown('<div class="result-box">', unsafe_allow_html=True)
-    if not sometido:
-        st.warning("⚠️ Altura > 950 mm: No requiere verificar baranda.")
-    else:
-        st.write(f"**Criterio de Deflexión: {criterio_txt}**")
-        st.write(f"• Inercia Mínima: **{Ixx_req:.3f} cm⁴**")
-        st.write(f"• Módulo Mínimo: **{Wxx_req:.3f} cm³**")
-        
-        cumple_i = ixx_prop >= Ixx_req
-        cumple_w = wxx_prop >= Wxx_req
-        
-        st.divider()
-        st.markdown(f"Inercia: <span class='{'verify-ok' if cumple_i else 'verify-fail'}'>{'✅ OK' if cumple_i else '❌ FALLA'}</span>", unsafe_allow_html=True)
-        st.markdown(f"Módulo: <span class='{'verify-ok' if cumple_w else 'verify-fail'}'>{'✅ OK' if cumple_w else '❌ FALLA'}</span>", unsafe_allow_html=True)
+    
+    # Mensaje de advertencia sin bloqueo de cálculo
+    if altura_total > 950:
+        st.warning("⚠️ El travesaño no estará directamente a la carga de baranda (Altura > 950 mm), pero se muestran los cálculos de referencia.")
+
+    st.write(f"**Criterio de Deflexión: {criterio_txt}**")
+    st.write(f"• Inercia Mínima Requerida: **{Ixx_req:.3f} cm⁴**")
+    st.write(f"• Módulo Mínimo Requerido: **{Wxx_req:.3f} cm³**")
+    
+    cumple_i = ixx_prop >= Ixx_req
+    cumple_w = wxx_prop >= Wxx_req
+    
+    st.divider()
+    st.markdown(f"Inercia: <span class='{'verify-ok' if cumple_i else 'verify-fail'}'>{'✅ OK' if cumple_i else '❌ FALLA'}</span>", unsafe_allow_html=True)
+    st.markdown(f"Módulo: <span class='{'verify-ok' if cumple_w else 'verify-fail'}'>{'✅ OK' if cumple_w else '❌ FALLA'}</span>", unsafe_allow_html=True)
+    
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_img:
